@@ -31,11 +31,10 @@ cd source/ns-3.26
 ```
 ./waf
 ```
-* Run examples
+* Run aodv
 ```
-cp examples/tutorial/first.cc scratch/
-./waf
-./waf --run scratch/first
+cp aodv.cc <ns-3_directory>/scratch
+./waf --run scratch/aodv
 ```
 
 ## Screenshots
