@@ -9,7 +9,13 @@
 def build(bld):
     module = bld.create_ns3_module('aodv-worm', ['core'])
     module.source = [
-        'model/aodv-worm.cc',
+        'model/aodv-id-cache.cc',
+        'model/aodv-dpd.cc',
+        'model/aodv-rtable.cc',
+        'model/aodv-rqueue.cc',
+        'model/aodv-packet.cc',
+        'model/aodv-neighbor.cc',
+        'model/aodv-routing-protocol.cc',
         'helper/aodv-worm-helper.cc',
         ]
 
@@ -21,7 +27,13 @@ def build(bld):
     headers = bld(features='ns3header')
     headers.module = 'aodv-worm'
     headers.source = [
-        'model/aodv-worm.h',
+        'model/aodv-id-cache.h',
+        'model/aodv-dpd.h',
+        'model/aodv-rtable.h',
+        'model/aodv-rqueue.h',
+        'model/aodv-packet.h',
+        'model/aodv-neighbor.h',
+        'model/aodv-routing-protocol.h',
         'helper/aodv-worm-helper.h',
         ]
 
