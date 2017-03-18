@@ -15,10 +15,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Based on 
+ * Based on
  *      NS-2 AODV model developed by the CMU/MONARCH group and optimized and
  *      tuned by Samir Das and Mahesh Marina, University of Cincinnati;
- * 
+ *
  *      AODV-UU implementation by Erik Nordström of Uppsala University
  *      http://core.it.uu.se/core/index.php/AODV-UU
  *
@@ -47,7 +47,7 @@ namespace aodv
 {
 /**
  * \ingroup aodv
- * 
+ *
  * \brief AODV routing protocol
  */
 class RoutingProtocol : public Ipv4RoutingProtocol
@@ -72,7 +72,7 @@ public:
   virtual void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address);
   virtual void SetIpv4 (Ptr<Ipv4> ipv4);
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const;
-  
+
   // Handle protocol parameters
   Time GetMaxQueueTime () const { return m_maxQueueTime; }
   void SetMaxQueueTime (Time t);
@@ -87,7 +87,20 @@ public:
   void SetBroadcastEnable (bool f) { m_enableBroadcast = f; }
   bool GetBroadcastEnable () const { return m_enableBroadcast; }
 
- /**
+  void SetMaliciousEnable (bool f) { IsMalicious = f; }     // Method declared for Blackhole Attack Simulation - Shalini Satre
+  bool GetMaliciousEnable () const { return IsMalicious; }
+
+  //CNLAB
+  /*Method to enable/disable wormhole feature*/
+  void SetWrmAttackEnable (bool f) { EnableWrmAttack =f; }
+  /*Method to get the status of wormhole feature*/
+  bool GetWrmAttackEnable () const { return EnableWrmAttack; }
+  Ipv4Address FirstEndOfWormTunnel;
+  Ipv4Address SecondEndOfWormTunnel;
+  Ipv4Address FirstEndWifiWormTunnel;
+  Ipv4Address SecondEndWifiWormTunnel;
+
+    /**
   * Assign a fixed random variable stream number to the random variables
   * used by this model.  Return the number of streams (possibly zero) that
   * have been assigned.
@@ -100,7 +113,7 @@ public:
 protected:
   virtual void DoInitialize (void);
 private:
-  
+
   // Protocol parameters.
   uint32_t m_rreqRetries;             ///< Maximum number of retransmissions of RREQ with TTL = NetDiameter to discover a route
   uint16_t m_ttlStart;                ///< Initial TTL value for RREQ.
@@ -140,6 +153,9 @@ private:
   bool m_enableBroadcast;              ///< Indicates whether a a broadcast data packets forwarding enable
   //\}
 
+  //variable to enable/disable wormhole functionality. CNLAB
+  bool EnableWrmAttack;
+
   /// IP protocol
   Ptr<Ipv4> m_ipv4;
   /// Raw unicast socket per each IP interface, map socket -> iface address (IP + mask)
@@ -147,7 +163,7 @@ private:
   /// Raw subnet directed broadcast socket per each IP interface, map socket -> iface address (IP + mask)
   std::map< Ptr<Socket>, Ipv4InterfaceAddress > m_socketSubnetBroadcastAddresses;
   /// Loopback device used to defer RREQ until packet will be fully formed
-  Ptr<NetDevice> m_lo; 
+  Ptr<NetDevice> m_lo;
 
   /// Routing table
   RoutingTable m_routingTable;
@@ -167,6 +183,8 @@ private:
   uint16_t m_rreqCount;
   /// Number of RERRs used for RERR rate control
   uint16_t m_rerrCount;
+  /// Set node as malicious. Dropping every packet received.
+  bool IsMalicious;                                             // Variable declared for Blackhole Attack Simulation - Shalini Satre
 
 private:
   /// Start protocol operation
@@ -271,7 +289,7 @@ private:
   void AckTimerExpire (Ipv4Address neighbor,  Time blacklistTimeout);
 
   /// Provides uniform random variables.
-  Ptr<UniformRandomVariable> m_uniformRandomVariable;  
+  Ptr<UniformRandomVariable> m_uniformRandomVariable;
   /// Keep track of the last bcast time
   Time m_lastBcastTime;
 };

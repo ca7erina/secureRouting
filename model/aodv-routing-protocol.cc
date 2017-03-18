@@ -15,10 +15,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Based on 
+ * Based on
  *      NS-2 AODV model developed by the CMU/MONARCH group and optimized and
  *      tuned by Samir Das and Mahesh Marina, University of Cincinnati;
- * 
+ *
  *      AODV-UU implementation by Erik Nordström of Uppsala University
  *      http://core.it.uu.se/core/index.php/AODV-UU
  *
@@ -26,7 +26,7 @@
  *          Pavel Boyko <boyko@iitp.ru>
  */
 #define NS_LOG_APPEND_CONTEXT                                   \
-  if (m_ipv4) { std::clog << "[node " << m_ipv4->GetObject<Node> ()->GetId () << "] "; } 
+  if (m_ipv4) { std::clog << "[node " << m_ipv4->GetObject<Node> ()->GetId () << "] "; }
 
 #include "aodv-routing-protocol.h"
 #include "ns3/log.h"
@@ -43,6 +43,8 @@
 #include "ns3/pointer.h"
 #include <algorithm>
 #include <limits>
+
+using namespace std;
 
 namespace ns3
 {
@@ -75,7 +77,7 @@ public:
     return tid;
   }
 
-  TypeId  GetInstanceTypeId () const 
+  TypeId  GetInstanceTypeId () const
   {
     return GetTypeId ();
   }
@@ -163,6 +165,7 @@ RoutingProtocol::RoutingProtocol () :
 TypeId
 RoutingProtocol::GetTypeId (void)
 {
+        //groupname is new
   static TypeId tid = TypeId ("ns3::aodv::RoutingProtocol")
     .SetParent<Ipv4RoutingProtocol> ()
     .SetGroupName("Aodv")
@@ -277,6 +280,41 @@ RoutingProtocol::GetTypeId (void)
                    StringValue ("ns3::UniformRandomVariable"),
                    MakePointerAccessor (&RoutingProtocol::m_uniformRandomVariable),
                    MakePointerChecker<UniformRandomVariable> ())
+    .AddAttribute ("IsMalicious", "Is the node malicious",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&RoutingProtocol::SetMaliciousEnable,
+                                        &RoutingProtocol::GetMaliciousEnable),
+                   MakeBooleanChecker ())
+
+/*Introduction of attributes to enable the wormhole attack feature*/
+//CNLAB
+    .AddAttribute("EnableWrmAttack",
+            "Indicates whether a Wormhole Attack is enabled or not.",
+            BooleanValue(false),
+            MakeBooleanAccessor (&RoutingProtocol::SetWrmAttackEnable,
+                                &RoutingProtocol::GetWrmAttackEnable),
+                                MakeBooleanChecker())
+    .AddAttribute("FirstEndOfWormTunnel",
+            "Indicates the first end of the Wormhole tunnel.",
+            Ipv4AddressValue("10.1.2.1"),
+            MakeIpv4AddressAccessor (&RoutingProtocol::FirstEndOfWormTunnel),
+            MakeIpv4AddressChecker ())
+    .AddAttribute("SecondEndOfWormTunnel",
+            "Indicates the second end of the Wormhole tunnel",
+            Ipv4AddressValue("10.1.2.2"),
+            MakeIpv4AddressAccessor(&RoutingProtocol::SecondEndOfWormTunnel),
+            MakeIpv4AddressChecker())
+    .AddAttribute("FirstEndWifiWormTunnel",
+            "Indicates the wifi interface of the first end of the Wormhole tunnel",
+            Ipv4AddressValue("10.0.1.37"),
+            MakeIpv4AddressAccessor(&RoutingProtocol::FirstEndWifiWormTunnel),
+            MakeIpv4AddressChecker())
+    .AddAttribute("SecondEndWifiWormTunnel",
+            "Indicates the wifi interface of the second end of the Wormhole tunnel",
+            Ipv4AddressValue("10.0.1.38"),
+            MakeIpv4AddressAccessor(&RoutingProtocol::SecondEndWifiWormTunnel),
+            MakeIpv4AddressChecker());
+
   ;
   return tid;
 }
@@ -308,6 +346,7 @@ RoutingProtocol::DoDispose ()
       iter->first->Close ();
     }
   m_socketAddresses.clear ();
+        //for and broadcast added. CNLAB
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::iterator iter =
          m_socketSubnetBroadcastAddresses.begin (); iter != m_socketSubnetBroadcastAddresses.end (); iter++)
     {
@@ -392,8 +431,8 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
       return route;
     }
 
-  // Valid route not found, in this case we return loopback. 
-  // Actual route request will be deferred until packet will be fully formed, 
+  // Valid route not found, in this case we return loopback.
+  // Actual route request will be deferred until packet will be fully formed,
   // routed to loopback, received from loopback and passed to RouteInput (see below)
   uint32_t iif = (oif ? m_ipv4->GetInterfaceForDevice (oif) : -1);
   DeferredRouteOutputTag tag (iif);
@@ -406,7 +445,7 @@ RoutingProtocol::RouteOutput (Ptr<Packet> p, const Ipv4Header &header,
 }
 
 void
-RoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p, const Ipv4Header & header, 
+RoutingProtocol::DeferredRouteOutput (Ptr<const Packet> p, const Ipv4Header & header,
                                       UnicastForwardCallback ucb, ErrorCallback ecb)
 {
   NS_LOG_FUNCTION (this << p << header);
@@ -465,7 +504,7 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p, const Ipv4Header &header,
   // AODV is not a multicast routing protocol
   if (dst.IsMulticast ())
     {
-      return false; 
+      return false;
     }
 
   // Broadcast local delivery/forwarding
@@ -540,9 +579,21 @@ RoutingProtocol::RouteInput (Ptr<const Packet> p, const Ipv4Header &header,
           UpdateRouteLifeTime (toOrigin.GetNextHop (), m_activeRouteTimeout);
           m_nb.Update (toOrigin.GetNextHop (), m_activeRouteTimeout);
         }
+
       if (lcb.IsNull () == false)
         {
           NS_LOG_LOGIC ("Unicast local delivery to " << dst);
+          //CNLAB
+
+          if(EnableWrmAttack)
+                  {
+
+
+                      if(dst==FirstEndOfWormTunnel || dst==SecondEndOfWormTunnel)
+                      {
+                          iif=1;
+                      }
+                  }
           lcb (p, header, iif);
         }
       else
@@ -574,6 +625,14 @@ RoutingProtocol::Forwarding (Ptr<const Packet> p, const Ipv4Header & header,
   Ipv4Address origin = header.GetSource ();
   m_routingTable.Purge ();
   RoutingTableEntry toDst;
+ /* Code added by Shalini Satre, Wireless Information Networking Group (WiNG), NITK Surathkal for simulating Blackhole Attack */
+ /* Check if the node is suppose to behave maliciously */
+        if(IsMalicious)
+          {//When malicious node receives packet it drops the packet.
+                std :: cout <<"Launching Blackhole Attack! Packet dropped . . . \n";
+               return false;
+          }
+ /* Code for Blackhole attack simulation ends here */
   if (m_routingTable.LookupRoute (dst, toDst))
     {
       if (toDst.GetFlag () == VALID)
@@ -627,6 +686,8 @@ RoutingProtocol::SetIpv4 (Ptr<Ipv4> ipv4)
   NS_ASSERT (ipv4 != 0);
   NS_ASSERT (m_ipv4 == 0);
 
+  //setting HELLO timer expiry missing. CNLAB
+
   m_ipv4 = ipv4;
 
   // Create lo route. It is asserted that the only one interface up for now is loopback
@@ -655,7 +716,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
   Ipv4InterfaceAddress iface = l3->GetAddress (i, 0);
   if (iface.GetLocal () == Ipv4Address ("127.0.0.1"))
     return;
- 
+
   // Create a socket to listen only on this interface
   Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (),
                                              UdpSocketFactory::GetTypeId ());
@@ -667,7 +728,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
   socket->SetIpRecvTtl (true);
   m_socketAddresses.insert (std::make_pair (socket, iface));
 
-  // create also a subnet broadcast socket
+  // create also a subnet broadcast socket -> added. CNLAB
   socket = Socket::CreateSocket (GetObject<Node> (),
                                  UdpSocketFactory::GetTypeId ());
   NS_ASSERT (socket != 0);
@@ -684,6 +745,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
                                     /*hops=*/ 1, /*next hop=*/ iface.GetBroadcast (), /*lifetime=*/ Simulator::GetMaximumSimulationTime ());
   m_routingTable.AddRoute (rt);
 
+  //if is new. CNLAB
   if (l3->GetInterface (i)->GetArpCache ())
     {
       m_nb.AddArpCache (l3->GetInterface (i)->GetArpCache ());
@@ -698,6 +760,7 @@ RoutingProtocol::NotifyInterfaceUp (uint32_t i)
     return;
 
   mac->TraceConnectWithoutContext ("TxErrHeader", m_nb.GetTxErrorCallback ());
+  //no ARP Cache. CNLAB
 }
 
 void
@@ -720,7 +783,7 @@ RoutingProtocol::NotifyInterfaceDown (uint32_t i)
         }
     }
 
-  // Close socket 
+  // Close socket
   Ptr<Socket> socket = FindSocketWithInterfaceAddress (m_ipv4->GetAddress (i, 0));
   NS_ASSERT (socket);
   socket->Close ();
@@ -876,7 +939,7 @@ RoutingProtocol::IsMyOwnAddress (Ipv4Address src)
   return false;
 }
 
-Ptr<Ipv4Route> 
+Ptr<Ipv4Route>
 RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) const
 {
   NS_LOG_FUNCTION (this << hdr);
@@ -896,7 +959,7 @@ RoutingProtocol::LoopbackRoute (const Ipv4Header & hdr, Ptr<NetDevice> oif) cons
   // For single interface, single address nodes, this is not a problem.
   // When there are possibly multiple outgoing interfaces, the policy
   // implemented here is to pick the first available AODV interface.
-  // If RouteOutput() caller specified an outgoing interface, that 
+  // If RouteOutput() caller specified an outgoing interface, that
   // further constrains the selection of source address
   //
   std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j = m_socketAddresses.begin ();
@@ -990,6 +1053,7 @@ RoutingProtocol::SendRequest (Ipv4Address dst)
   rreqHeader.SetOriginSeqno (m_seqNo);
   m_requestId++;
   rreqHeader.SetId (m_requestId);
+  rreqHeader.SetHopCount (0);
 
   // Send RREQ as subnet directed broadcast from each interface used by aodv
   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j =
@@ -1015,12 +1079,12 @@ RoutingProtocol::SendRequest (Ipv4Address dst)
           destination = Ipv4Address ("255.255.255.255");
         }
       else
-        { 
+        {
           destination = iface.GetBroadcast ();
         }
       NS_LOG_DEBUG ("Send RREQ with id " << rreqHeader.GetId () << " to socket");
       m_lastBcastTime = Simulator::Now ();
-      Simulator::Schedule (Time (MilliSeconds (m_uniformRandomVariable->GetInteger (0, 10))), &RoutingProtocol::SendTo, this, socket, packet, destination); 
+      Simulator::Schedule (Time (MilliSeconds (m_uniformRandomVariable->GetInteger (0, 10))), &RoutingProtocol::SendTo, this, socket, packet, destination);
     }
   ScheduleRreqRetry (dst);
 }
@@ -1082,6 +1146,26 @@ RoutingProtocol::RecvAodv (Ptr<Socket> socket)
       NS_ASSERT_MSG (false, "Received a packet from an unknown socket");
     }
   NS_LOG_DEBUG ("AODV node " << this << " received a AODV packet from " << sender << " to " << receiver);
+
+  if(EnableWrmAttack) //CNLAB
+    {
+      // cout <<endl<<"Received AODV Packet at Wormhole Node"<<endl;
+      // cout<<"Sender IP Address-"<<sender<<endl;
+      // cout<<"First End of Wormhole Tunnel"<<FirstEndWifiWormTunnel<<endl;
+      // cout<<"Receiver IP Address-"<<receiver<<endl;
+      // cout<<"Second End of Wifi Tunnel"<<SecondEndWifiWormTunnel;
+
+      if(sender==FirstEndOfWormTunnel && receiver==SecondEndWifiWormTunnel)
+        {
+            // cout<<"Received by Second Wifi Wrm Tunnel"<<endl;
+            receiver=SecondEndOfWormTunnel;
+        }
+      if(sender==SecondEndOfWormTunnel && receiver==FirstEndWifiWormTunnel)
+        {
+            // cout<<"Received by First Wifi Wrm Tunnel"<<endl;
+            receiver=FirstEndOfWormTunnel;
+        }
+    }
 
   UpdateRouteToNeighbor (sender, receiver);
   TypeHeader tHeader (AODVTYPE_RREQ);
@@ -1214,7 +1298,24 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
   RoutingTableEntry toOrigin;
   if (!m_routingTable.LookupRoute (origin, toOrigin))
     {
-      Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
+      Ptr<NetDevice> dev;
+
+      //CNLAB
+      if(EnableWrmAttack && (src==FirstEndOfWormTunnel))
+          {
+            // cout<<"ENTER IN THE ATTACK WRM2";
+            dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (SecondEndOfWormTunnel));
+            receiver=SecondEndOfWormTunnel;
+          }
+      else if(EnableWrmAttack && (src==SecondEndOfWormTunnel))
+          {
+            // cout<<"ENTER IN THE ATTACK WRM1";
+            dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (FirstEndOfWormTunnel));
+            receiver=FirstEndOfWormTunnel;
+          }
+          else
+            dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
+
       RoutingTableEntry newEntry (/*device=*/ dev, /*dst=*/ origin, /*validSeno=*/ true, /*seqNo=*/ rreqHeader.GetOriginSeqno (),
                                               /*iface=*/ m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0), /*hops=*/ hop,
                                               /*nextHop*/ src, /*timeLife=*/ Time ((2 * m_netTraversalTime - 2 * hop * m_nodeTraversalTime)));
@@ -1244,7 +1345,7 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
   RoutingTableEntry toNeighbor;
   if (!m_routingTable.LookupRoute (src, toNeighbor))
     {
-      NS_LOG_DEBUG ("Neighbor:" << src << " not found in routing table. Creating an entry"); 
+      NS_LOG_DEBUG ("Neighbor:" << src << " not found in routing table. Creating an entry");
       Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
       RoutingTableEntry newEntry (dev, src, false, rreqHeader.GetOriginSeqno (),
                                               m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0),
@@ -1255,7 +1356,7 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
     {
       toNeighbor.SetLifeTime (m_activeRouteTimeout);
       toNeighbor.SetValidSeqNo (false);
-      toNeighbor.SetSeqNo (rreqHeader.GetOriginSeqno ()); 
+      toNeighbor.SetSeqNo (rreqHeader.GetOriginSeqno ());
       toNeighbor.SetFlag (VALID);
       toNeighbor.SetOutputDevice (m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver)));
       toNeighbor.SetInterface (m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0));
@@ -1265,7 +1366,7 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
     }
   m_nb.Update (src, Time (m_allowedHelloLoss * m_helloInterval));
 
-  NS_LOG_LOGIC (receiver << " receive RREQ with hop count " << static_cast<uint32_t>(rreqHeader.GetHopCount ()) 
+  NS_LOG_LOGIC (receiver << " receive RREQ with hop count " << static_cast<uint32_t>(rreqHeader.GetHopCount ())
                          << " ID " << rreqHeader.GetId ()
                          << " to destination " << rreqHeader.GetDst ());
 
@@ -1278,13 +1379,15 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
       SendReply (rreqHeader, toOrigin);
       return;
     }
+
   /*
    * (ii) or it has an active route to the destination, the destination sequence number in the node's existing route table entry for the destination
    *      is valid and greater than or equal to the Destination Sequence Number of the RREQ, and the "destination only" flag is NOT set.
    */
   RoutingTableEntry toDst;
   Ipv4Address dst = rreqHeader.GetDst ();
-  if (m_routingTable.LookupRoute (dst, toDst))
+
+  if (IsMalicious || m_routingTable.LookupRoute (dst, toDst))
     {
       /*
        * Drop RREQ, This node RREP wil make a loop.
@@ -1300,12 +1403,27 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
        * However, the forwarding node MUST NOT modify its maintained value for the destination sequence number, even if the value
        * received in the incoming RREQ is larger than the value currently maintained by the forwarding node.
        */
-      if ((rreqHeader.GetUnknownSeqno () || (int32_t (toDst.GetSeqNo ()) - int32_t (rreqHeader.GetDstSeqno ()) >= 0))
-          && toDst.GetValidSeqNo () )
+      if (IsMalicious || ((rreqHeader.GetUnknownSeqno () || (int32_t (toDst.GetSeqNo ()) - int32_t (rreqHeader.GetDstSeqno ()) >= 0))
+          && toDst.GetValidSeqNo ()) )
         {
-          if (!rreqHeader.GetDestinationOnly () && toDst.GetFlag () == VALID)
+          if (IsMalicious || (!rreqHeader.GetDestinationOnly () && toDst.GetFlag () == VALID))
             {
               m_routingTable.LookupRoute (origin, toOrigin);
+              /* Code added by Shalini Satre, Wireless Information Networking Group (WiNG), NITK Surathkal for simulating Blackhole Attack
+               * If node is malicious, it creates false routing table entry having sequence number much higher than
+               * that in RREQ message and hop count as 1.
+               * Malicious node itself sends the RREP message,
+               * so that the route will be established through malicious node.
+              */
+              if(IsMalicious)
+              {
+                Ptr<NetDevice> dev = m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver));
+                RoutingTableEntry falseToDst(dev,dst,true,rreqHeader.GetDstSeqno()+100,m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress(receiver),0), 1, dst, m_activeRouteTimeout);
+
+                SendReplyByIntermediateNode (falseToDst, toOrigin, rreqHeader.GetGratiousRrep ());
+                 return;
+              }
+              /* Code for Blackhole Attack Simulation ends here */
               SendReplyByIntermediateNode (toDst, toOrigin, rreqHeader.GetGratiousRrep ());
               return;
             }
@@ -1341,11 +1459,11 @@ RoutingProtocol::RecvRequest (Ptr<Packet> p, Ipv4Address receiver, Ipv4Address s
           destination = Ipv4Address ("255.255.255.255");
         }
       else
-        { 
+        {
           destination = iface.GetBroadcast ();
         }
       m_lastBcastTime = Simulator::Now ();
-      Simulator::Schedule (Time (MilliSeconds (m_uniformRandomVariable->GetInteger (0, 10))), &RoutingProtocol::SendTo, this, socket, packet, destination); 
+      Simulator::Schedule (Time (MilliSeconds (m_uniformRandomVariable->GetInteger (0, 10))), &RoutingProtocol::SendTo, this, socket, packet, destination);
 
     }
 }
@@ -1383,6 +1501,14 @@ RoutingProtocol::SendReplyByIntermediateNode (RoutingTableEntry & toDst, Routing
   /* If the node we received a RREQ for is a neighbor we are
    * probably facing a unidirectional link... Better request a RREP-ack
    */
+
+  ///Attract node to set up path through malicious node
+
+  if(IsMalicious)                       //Shalini Satre
+  {
+     rrepHeader.SetHopCount(1);
+  }
+
   if (toDst.GetHop () == 1)
     {
       rrepHeader.SetAckRequired (true);
@@ -1620,10 +1746,36 @@ RoutingProtocol::ProcessHello (RrepHeader const & rrepHeader, Ipv4Address receiv
       toNeighbor.SetSeqNo (rrepHeader.GetDstSeqno ());
       toNeighbor.SetValidSeqNo (true);
       toNeighbor.SetFlag (VALID);
-      toNeighbor.SetOutputDevice (m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver)));
-      toNeighbor.SetInterface (m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0));
-      toNeighbor.SetHop (1);
-      toNeighbor.SetNextHop (rrepHeader.GetDst ());
+
+      //CNLAB
+
+      Ipv4Address wrmDst=rrepHeader.GetDst();
+      if(EnableWrmAttack && wrmDst==FirstEndOfWormTunnel)
+      {
+          // cout<<"RREP Helper Contains First End P2P interface Address";
+          toNeighbor.SetOutputDevice (m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (SecondEndOfWormTunnel)));
+          toNeighbor.SetInterface (m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (SecondEndOfWormTunnel), 0));
+          toNeighbor.SetHop (1);
+          toNeighbor.SetNextHop (rrepHeader.GetDst ());
+      }
+      else if(EnableWrmAttack && wrmDst==SecondEndOfWormTunnel)
+      {
+          // cout<<"RREP Helper Contains Second End P2P interface Address";
+          toNeighbor.SetOutputDevice (m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (FirstEndOfWormTunnel)));
+          toNeighbor.SetInterface (m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (FirstEndOfWormTunnel), 0));
+          toNeighbor.SetHop (1);
+          toNeighbor.SetNextHop (rrepHeader.GetDst ());
+
+      }
+
+      else
+      {
+          toNeighbor.SetOutputDevice (m_ipv4->GetNetDevice (m_ipv4->GetInterfaceForAddress (receiver)));
+          toNeighbor.SetInterface (m_ipv4->GetAddress (m_ipv4->GetInterfaceForAddress (receiver), 0));
+          toNeighbor.SetHop (1);
+          toNeighbor.SetNextHop (rrepHeader.GetDst ());
+      }
+
       m_routingTable.Update (toNeighbor);
     }
   if (m_enableHello)
@@ -1805,7 +1957,7 @@ RoutingProtocol::SendHello ()
           destination = Ipv4Address ("255.255.255.255");
         }
       else
-        { 
+        {
           destination = iface.GetBroadcast ();
         }
       Time jitter = Time (MilliSeconds (m_uniformRandomVariable->GetInteger (0, 10)));
@@ -1822,7 +1974,7 @@ RoutingProtocol::SendPacketFromQueue (Ipv4Address dst, Ptr<Ipv4Route> route)
     {
       DeferredRouteOutputTag tag;
       Ptr<Packet> p = ConstCast<Packet> (queueEntry.GetPacket ());
-      if (p->RemovePacketTag (tag) && 
+      if (p->RemovePacketTag (tag) &&
           tag.GetInterface() != -1 &&
           tag.GetInterface() != m_ipv4->GetInterfaceForDevice (route->GetOutputDevice ()))
         {
@@ -1901,7 +2053,7 @@ RoutingProtocol::SendRerrWhenNoRouteToForward (Ipv4Address dst,
       // Just make sure that the RerrRateLimit timer is running and will expire
       NS_ASSERT (m_rerrRateLimitTimer.IsRunning ());
       // discard the packet and return
-      NS_LOG_LOGIC ("RerrRateLimit reached at " << Simulator::Now ().GetSeconds () << " with timer delay left " 
+      NS_LOG_LOGIC ("RerrRateLimit reached at " << Simulator::Now ().GetSeconds () << " with timer delay left "
                                                 << m_rerrRateLimitTimer.GetDelayLeft ().GetSeconds ()
                                                 << "; suppressing RERR");
       return;
@@ -1939,7 +2091,7 @@ RoutingProtocol::SendRerrWhenNoRouteToForward (Ipv4Address dst,
               destination = Ipv4Address ("255.255.255.255");
             }
           else
-            { 
+            {
               destination = iface.GetBroadcast ();
             }
           socket->SendTo (packet->Copy (), 0, InetSocketAddress (destination, AODV_PORT));
@@ -1963,7 +2115,7 @@ RoutingProtocol::SendRerrMessage (Ptr<Packet> packet, std::vector<Ipv4Address> p
       // Just make sure that the RerrRateLimit timer is running and will expire
       NS_ASSERT (m_rerrRateLimitTimer.IsRunning ());
       // discard the packet and return
-      NS_LOG_LOGIC ("RerrRateLimit reached at " << Simulator::Now ().GetSeconds () << " with timer delay left " 
+      NS_LOG_LOGIC ("RerrRateLimit reached at " << Simulator::Now ().GetSeconds () << " with timer delay left "
                                                 << m_rerrRateLimitTimer.GetDelayLeft ().GetSeconds ()
                                                 << "; suppressing RERR");
       return;
@@ -1988,7 +2140,7 @@ RoutingProtocol::SendRerrMessage (Ptr<Packet> packet, std::vector<Ipv4Address> p
   RoutingTableEntry toPrecursor;
   for (std::vector<Ipv4Address>::const_iterator i = precursors.begin (); i != precursors.end (); ++i)
     {
-      if (m_routingTable.LookupValidRoute (*i, toPrecursor) && 
+      if (m_routingTable.LookupValidRoute (*i, toPrecursor) &&
           std::find (ifaces.begin (), ifaces.end (), toPrecursor.GetInterface ()) == ifaces.end ())
         {
           ifaces.push_back (toPrecursor.GetInterface ());
@@ -2009,7 +2161,7 @@ RoutingProtocol::SendRerrMessage (Ptr<Packet> packet, std::vector<Ipv4Address> p
           destination = Ipv4Address ("255.255.255.255");
         }
       else
-        { 
+        {
           destination = i->GetBroadcast ();
         }
       Simulator::Schedule (Time (MilliSeconds (m_uniformRandomVariable->GetInteger (0, 10))), &RoutingProtocol::SendTo, this, socket, p, destination);
