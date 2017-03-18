@@ -108,6 +108,5 @@ MyApp::ScheduleTx (void)
         m_sendEvent = Simulator::Schedule (tNext, &MyApp::SendPacket, this);
     }
 }
-0
 
 
