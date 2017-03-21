@@ -10,20 +10,15 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-#include <cryptopp/osrng.h>
+#include <crypto++/osrng.h>
+#include <crypto++/cryptlib.h>
+#include <crypto++/secblock.h>
+#include <crypto++/elgamal.h>
 
 using CryptoPP::AutoSeededRandomPool;
-
-#include <cryptopp/secblock.h>
-
 using CryptoPP::SecByteBlock;
-
-#include <cryptopp/elgamal.h>
-
 using CryptoPP::ElGamal;
 using CryptoPP::ElGamalKeys;
-
-#include <cryptopp/cryptlib.h>
 
 using CryptoPP::DecodingResult;
 using CryptoPP::PublicKey;

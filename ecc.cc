@@ -13,36 +13,30 @@ using std::endl;
 #include <string>
 using std::string;
 
-#include "osrng.h"
+#include <crypto++/osrng.h>
+#include <crypto++/aes.h>
+#include <crypto++/integer.h>
+#include <crypto++/sha.h>
+#include <crypto++/filters.h>
+#include <crypto++/files.h>
+#include <crypto++/eccrypto.h>
+#include <crypto++/oids.h>
+
 // using CryptoPP::AutoSeededX917RNG;
 using CryptoPP::AutoSeededRandomPool;
-
-#include "aes.h"
 using CryptoPP::AES;
-
-#include "integer.h"
 using CryptoPP::Integer;
-
-#include "sha.h"
 using CryptoPP::SHA1;
-
-#include "filters.h"
 using CryptoPP::StringSource;
 using CryptoPP::StringSink;
 using CryptoPP::ArraySink;
 using CryptoPP::SignerFilter;
 using CryptoPP::SignatureVerificationFilter;
-
-#include "files.h"
 using CryptoPP::FileSource;
 using CryptoPP::FileSink;
-
-#include "eccrypto.h"
 using CryptoPP::ECDSA;
 using CryptoPP::ECP;
 using CryptoPP::DL_GroupParameters_EC;
-
-#include "oids.h"
 using CryptoPP::OID;
 
 bool GeneratePrivateKey( const OID& oid, ECDSA<ECP, SHA1>::PrivateKey& key );

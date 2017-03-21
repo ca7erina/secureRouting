@@ -5,15 +5,14 @@
 
 // Crypto++ Includes
 #include "iostream"
-#include "cryptlib.h"
-#include "oids.h"
-#include "osrng.h"
-#include "eccrypto.h"
-#include "asn.h"
-#include "ecp.h"
-#include "ec2n.h"
-#include "simple.h"
 
+#include <crypto++/oids.h>
+#include <crypto++/osrng.h>
+#include <crypto++/eccrypto.h>
+#include <crypto++/asn.h>
+#include <crypto++/ecp.h>
+#include <crypto++/ec2n.h>
+#include <crypto++/simple.h>
 
 #define ECC_ALGORITHM CryptoPP::ECP
 // #define ECC_ALGORITHM CryptoPP::EC2N
@@ -69,7 +68,7 @@ using std::cerr;
 using std::exception;
 using std::cout;
 using std::string;
-using runtime_error;
+using std::runtime_error;
 
 int main(int argc, char *argv[]) {
 

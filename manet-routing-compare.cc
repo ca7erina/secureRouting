@@ -288,41 +288,30 @@ RoutingExperiment::Run(int nSinks, double txp, std::string CSVfileName) {
   Ipv4InterfaceContainer adhocInterfaces;
   adhocInterfaces = addressAdhoc.Assign(adhocDevices);
 
+  // Example using OnOffApplication with nSinks pair of source and destination
+  // Source: 0  1   2   3   4   5   6   7   8   9
+  // Des   :10  11 12  13  14  15  16  17  18  19
+
+  OnOffHelper onoff1("ns3::UdpSocketFactory", Address());
+  onoff1.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+  onoff1.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+  
+  // Application starts in the function: void OnOffApplication::StartApplication ()
+  // every application must implement this method for the class ApplicationContainer
   for (int i = 0; i < nSinks; i++) {
-    UdpEchoServerHelper echoServer(port);
+    Ptr <Socket> sink = SetupPacketReceive(adhocInterfaces.GetAddress(i), adhocNodes.Get(i));
 
-    ApplicationContainer serverApps = echoServer.Install(adhocNodes.Get(i + nSinks));
-    serverApps.Start(Seconds(1.0));
-    serverApps.Stop(Seconds(TotalTime));
+    AddressValue remoteAddress(InetSocketAddress(adhocInterfaces.GetAddress(i), port));
+    onoff1.SetAttribute("Remote", remoteAddress);
 
-    UdpEchoClientHelper echoClient(adhocInterfaces.GetAddress(i + nSinks), port);
-    echoClient.SetAttribute("MaxPackets", UintegerValue(1));
-    echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
-    echoClient.SetAttribute("PacketSize", UintegerValue(1024));
-
-    ApplicationContainer clientApps = echoClient.Install(adhocNodes.Get(i));
     Ptr <UniformRandomVariable> var = CreateObject<UniformRandomVariable>();
-    clientApps.Start(Seconds(2));
-    clientApps.Stop(Seconds(TotalTime));
+    ApplicationContainer temp = onoff1.Install(adhocNodes.Get(i + nSinks));
+    temp.Start(Seconds(var->GetValue(100.0, 101.0)));
+    temp.Stop(Seconds(TotalTime));
 
-    CryptoPP::AutoSeededRandomPool rnd;
-
-    // Generate a random key
-    CryptoPP::SecByteBlock key(0x00, CryptoPP::AES::DEFAULT_KEYLENGTH);
-    rnd.GenerateBlock(key, key.size());
-
-    // Generate a random IV
-    byte iv[CryptoPP::AES::BLOCKSIZE];
-    rnd.GenerateBlock(iv, CryptoPP::AES::BLOCKSIZE);
-
-    char plainText[] = "Hello World";
-    int msgLen = (int) strlen(plainText) + 1;
-    CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption cfbEncryption(key, key.size(), iv);
-    cfbEncryption.ProcessData((byte *) plainText, (byte *) plainText, msgLen);
-    echoClient.SetFill(clientApps.Get(i), plainText);
   }
 
-  // For visualisation with NetAdmin purpose only
+//   For visualisation with NetAdmin purpose only
 //  std::stringstream ss;
 //  ss << nWifis;
 //  std::string nodes = ss.str();
@@ -340,16 +329,16 @@ RoutingExperiment::Run(int nSinks, double txp, std::string CSVfileName) {
 //  std::string sRate = ss4.str();
 //
 //  NS_LOG_INFO ("Configure Tracing.");
-//  tr_name = tr_name + "_" + m_protocolName + "_" + nodes + "nodes_" + sNodeSpeed + "speed_" + sNodePause + "pause_" + sRate + "rate";
+//  tr_name = tr_name + "_" + m_protocolName +"_" + nodes + "nodes_" + sNodeSpeed + "speed_" + sNodePause + "pause_" + sRate + "rate";
 //
 //  AsciiTraceHelper ascii;
-//  Ptr <OutputStreamWrapper> osw = ascii.CreateFileStream((tr_name + ".tr").c_str());
-//  wifiPhy.EnableAsciiAll(osw);
+//  Ptr<OutputStreamWrapper> osw = ascii.CreateFileStream ( (tr_name + ".tr").c_str());
+//  wifiPhy.EnableAsciiAll (osw);
 //  MobilityHelper::EnableAsciiAll(ascii.CreateFileStream(tr_name + ".mob"));
 //
-//  Ptr <FlowMonitor> flowmon;
+//  Ptr<FlowMonitor> flowmon;
 //  FlowMonitorHelper flowmonHelper;
-//  flowmon = flowmonHelper.InstallAll();
+//  flowmon = flowmonHelper.InstallAll ();
 //
   NS_LOG_INFO("Run Simulation.");
 //
@@ -358,7 +347,7 @@ RoutingExperiment::Run(int nSinks, double txp, std::string CSVfileName) {
   Simulator::Stop(Seconds(TotalTime));
   Simulator::Run();
 //
-//  flowmon->SerializeToXmlFile((tr_name + ".flowmon").c_str(), false, false);
+//  flowmon->SerializeToXmlFile ((tr_name + ".flowmon").c_str(), false, false);
 
   Simulator::Destroy();
 }
