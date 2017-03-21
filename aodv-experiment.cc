@@ -288,7 +288,7 @@ RoutingExperiment::Run(int nSinks, double txp, std::string CSVfileName) {
   Ipv4InterfaceContainer adhocInterfaces;
   adhocInterfaces = addressAdhoc.Assign(adhocDevices);
 
-  for (int i = 0; i < nSinks; i++) {
+  for (int i = 0; i < 1; i++) {
     UdpEchoServerHelper echoServer(port);
 
     ApplicationContainer serverApps = echoServer.Install(adhocNodes.Get(i + nSinks));
